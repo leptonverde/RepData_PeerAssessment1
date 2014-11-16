@@ -7,19 +7,108 @@ output:
 
 
 ## Loading and preprocessing the data
+```{r}
+data <- read.csv(unz("activity.zip", "activity.csv"), stringsAsFactors = T)
+data$pDate <- strptime(as.character(data$date), format = "%Y-%m-%d")
+```
 
 
 
 ## What is mean total number of steps taken per day?
+```{r}
+total <- aggregate(data$steps, by = list(data$date), FUN = sum, na.rm = T)
+names(total) <- c("Date", "TotalSteps")
 
+hist(total$TotalSteps, main = "Total Steps per Day", xlab = "Steps")
+
+means <- aggregate(data$steps, by = list(data$date), FUN = mean, na.rm = T)
+names(means) <- c("Date", "Mean")
+print(means)
+
+medians <- aggregate(data$steps, by = list(data$date), FUN = median, na.rm = T)
+names(medians) <- c("Date", "Median")
+print(medians)
+
+```
 
 
 ## What is the average daily activity pattern?
 
 
+```{r}
+intervals <- aggregate(data$steps, by = list(data$interval), FUN = mean, na.rm = T)
+names(intervals) <- c("Interval", "Mean")
+plot(intervals$Interval, intervals$Mean, type = "l", main = "Steps By Interval", xlab = "5 Minute Interval", ylab = "Mean")
+
+```
+
+Interval with Maximun number of Steps
+
+```{r}
+ print(intervals$Interval[intervals$Mean == max(intervals$Mean)])
+```
 
 ## Imputing missing values
 
+Total of missing Values
+
+```{r}
+sum(as.numeric(is.na(data$steps)))
+```
+
+Replacing NA with 5 minute interval mean
+
+```{r}
+new_data <- data;
+indexes <- which(is.na(new_data))
+new_intervals <-  new_data$interval[indexes]
+
+for (i in 1:length(new_intervals)){
+  new_data$steps[indexes[i]] <- intervals$Mean[intervals$Interval == new_intervals[i]]  
+}
+
+
+```
+
+Recalculating Mean, Median and Plotting Histogram
+
+```{r}
+total <- aggregate(new_data$steps, by = list(new_data$date), FUN = sum)
+names(total) <- c("Date", "TotalSteps")
+
+hist(total$TotalSteps, main = "Total Steps per Day", xlab = "Steps")
+
+means <- aggregate(new_data$steps, by = list(new_data$date), FUN = mean)
+names(means) <- c("Date", "Mean")
+print(means)
+
+medians <- aggregate(new_data$steps, by = list(new_data$date), FUN = median)
+names(medians) <- c("Date", "Median")
+print(medians)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Making names of days on English and Making a new Column for WeekDay type
+```{r}
+library(ggplot2)
+Sys.setlocale("LC_TIME", "C")
+data_weekdays <- weekdays(new_data$pDate);
+weekend_indexes <- which(data_weekdays == "Saturday" | data_weekdays == "Sunday") 
+weekday_indexes <-  which(data_weekdays != "Saturday" & data_weekdays != "Sunday")
+new_data$weekDays <- data_weekdays
+new_data$weekDays[weekend_indexes] <- "Weekend"
+new_data$weekDays[weekday_indexes] <- "Weekday"
+new_data$weekDays <- as.factor(new_data$weekDays)
+
+g <- ggplot(new_data, aes(interval, steps))
+p <- g + geom_line(aes(color = weekDays)) + 
+  facet_grid(. ~ weekDays) + 
+  labs(title = "Steps by Weekday", y = "Steps", x = "Interval") + 
+  theme_bw(base_family = "Times") 
+print(p)
+
+```
+
+
